@@ -1,0 +1,172 @@
+# Import necessary libraries
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor
+
+# Load the dataset and perform preprocessing
+df = pd.read_csv('car_pro.csv')
+df['selling_price'] = np.log(df['selling_price'])
+df_encoded = pd.get_dummies(df, columns=['brand', 'fuel', 'seller_type', 'transmission'])
+
+# Separate the target variable ('selling_price') and features
+X = df_encoded.drop(columns=['selling_price'])
+y = df_encoded['selling_price']
+
+# Create and train a Random Forest regression model
+model = RandomForestRegressor(n_estimators=100, random_state=27)
+model.fit(X, y)
+
+# Create a Dash app instance
+app = dash.Dash(__name__)
+
+# Define the layout of your app
+app.layout = html.Div([
+    html.H1("Price Prediction App"),
+    html.P("Welcome to the Price Prediction App!"),
+    
+    # Instructions
+    html.Div([
+        html.H3("Instructions:"),
+        html.P("Fill in the details below to get a price prediction for your car. "),
+        html.P("For the 'Owner' input, please use the following mappings:"),
+        html.P(" - First Owner: 1"),
+        html.P(" - Second Owner: 2"),
+        html.P(" - Third Owner: 3"),
+        html.P(" - Fourth & Above Owner: 4"),
+        html.P(" - Test Drive Car: 5"),
+    ]),
+    
+    # Input form
+    html.Label("Brand:"),
+    dcc.Input(id='input-brand', type='text', placeholder='Enter brand'),
+    
+    html.Label("Year:"),
+    dcc.Input(id='input-year', type='number', placeholder='Enter year'),
+    
+    html.Label("Kilometers Driven:"),
+    dcc.Input(id='input-km-driven', type='number', placeholder='Enter kilometers driven'),
+    
+    html.Label("Fuel:"),
+    dcc.Dropdown(
+        id='input-fuel',
+        options=[
+            {'label': 'Petrol', 'value': 'Petrol'},
+            {'label': 'Diesel', 'value': 'Diesel'},
+        ],
+        placeholder='Select fuel'
+    ),
+    
+    html.Label("Seller Type:"),
+    dcc.Dropdown(
+        id='input-seller-type',
+        options=[
+            {'label': 'Individual', 'value': 'Individual'},
+            {'label': 'Dealer', 'value': 'Dealer'},
+            {'label': 'Trustmark Dealer', 'value': 'Trustmark Dealer'},
+        ],
+        placeholder='Select seller type'
+    ),
+    
+    html.Label("Transmission:"),
+    dcc.Dropdown(
+        id='input-transmission',
+        options=[
+            {'label': 'Manual', 'value': 'Manual'},
+            {'label': 'Automatic', 'value': 'Automatic'},
+        ],
+        placeholder='Select transmission'
+    ),
+    
+    html.Label("Owner:"),  # Change to number input
+    dcc.Input(id='input-owner', type='number', placeholder='Enter owner'),
+    
+    html.Label("Mileage:"),
+    dcc.Input(id='input-mileage', type='number', placeholder='Enter mileage'),
+    
+    html.Label("Engine:"),
+    dcc.Input(id='input-engine', type='number', placeholder='Enter engine capacity'),
+    
+    html.Label("Max Power:"),
+    dcc.Input(id='input-max-power', type='number', placeholder='Enter max power'),
+    
+    html.Label("Number of Seats:"),
+    dcc.Input(id='input-seats', type='number', placeholder='Enter number of seats'),
+    
+    html.Button('Submit', id='submit-button'),
+    
+    # Display prediction result
+    html.Div(id='output-price')
+])
+
+
+
+# Callback to update the prediction result when the submit button is clicked
+@app.callback(
+    Output('output-price', 'children'),
+    Input('submit-button', 'n_clicks'),
+    Input('input-brand', 'value'),
+    Input('input-year', 'value'),
+    Input('input-km-driven', 'value'),
+    Input('input-fuel', 'value'),
+    Input('input-seller-type', 'value'),
+    Input('input-transmission', 'value'),
+    Input('input-owner', 'value'),
+    Input('input-mileage', 'value'),
+    Input('input-engine', 'value'),
+    Input('input-max-power', 'value'),
+    Input('input-seats', 'value')
+)
+
+def update_price_prediction(n_clicks, brand, year, km_driven, fuel, seller_type,
+                            transmission, owner, mileage, engine, max_power, seats):
+    if n_clicks is None:
+        return ''  # No prediction until the submit button is clicked
+
+    # Prepare the input data for prediction
+    user_input = {
+        'brand': brand,
+        'year': year,
+        'km_driven': km_driven,
+        'fuel': fuel,
+        'seller_type': seller_type,
+        'transmission': transmission,
+        'owner': owner,
+        'mileage': mileage,
+        'engine': engine,
+        'max_power': max_power,
+        'seats': seats
+    }
+    
+    # Create a DataFrame for user input
+    user_input_df = pd.DataFrame([user_input])
+    
+    # One-hot encode categorical features (from your provided code)
+    user_input_df_encoded = pd.get_dummies(user_input_df, columns=['brand', 'fuel', 'seller_type', 'transmission'])
+    
+    # Ensure that the input DataFrame has the same columns as the model's training data
+    # Initialize missing columns with 0
+    missing_columns = set(X.columns) - set(user_input_df_encoded.columns)
+    for column in missing_columns:
+        user_input_df_encoded[column] = 0
+    
+    # Reorganize the columns to match the order of X
+    user_input_df_encoded = user_input_df_encoded[X.columns]
+    
+    # Make a prediction using the trained model
+    predicted_log_price = model.predict(user_input_df_encoded)[0]
+    predicted_price = round(np.exp(predicted_log_price), 2)  # Convert back to the original scale
+    
+    prediction_result = f"Predicted Price: {predicted_price} INR"
+    
+    return prediction_result
+
+
+
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
+
