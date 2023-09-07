@@ -2,7 +2,7 @@
 FROM python:3.11.4-bookworm
 
 # Set the working directory to /root/code
-WORKDIR /app
+WORKDIR /app/code
 
 # Install necessary Python libraries
 RUN pip3 install dash
@@ -13,7 +13,7 @@ RUN pip3 install numpy
 RUN pip3 install scikit-learn
 
 # Copy the contents of the local 'code' directory to /root/code/ in the container
-COPY ./app /app
+COPY ./app/code /app/code
 
 # Expose port 8050 for the Dash web application
 EXPOSE 8050
